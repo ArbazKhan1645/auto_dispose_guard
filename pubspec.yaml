@@ -4,10 +4,10 @@ description: >-
   all disposable resources — zero boilerplate, zero memory leaks.
   Supports TextEditingController, AnimationController, StreamController,
   FocusNode, custom types, and anything with dispose/close/cancel.
-version: 1.0.0
-homepage: https://github.com/yourusername/auto_dispose_guard
-repository: https://github.com/yourusername/auto_dispose_guard
-issue_tracker: https://github.com/yourusername/auto_dispose_guard/issues
+version: 1.0.1
+homepage: https://github.com/ArbazKhan1645/auto_dispose_guard
+repository: https://github.com/ArbazKhan1645/auto_dispose_guard
+issue_tracker: https://github.com/ArbazKhan1645/auto_dispose_guard/issues
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

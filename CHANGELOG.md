@@ -1,4 +1,8 @@
-﻿## 1.0.0
+﻿## 1.0.1
+
+* Fix: updated repository and homepage URLs in pubspec.yaml.
+
+## 1.0.0
 
 * Initial release.
 * `AutoDisposeMixin` — zero-boilerplate State mixin; register resources inline with `register()`.
