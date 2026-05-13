@@ -17,7 +17,7 @@
 /// | [Disposable] | `void dispose()` |
 /// | [Closeable]  | `void close()` |
 /// | [Cancellable]| `void cancel()` |
-library auto_dispose_guard;
+library;
 
 // Marker interfaces + engine (advanced / testing use)
 export 'src/core/dispose_engine.dart'
