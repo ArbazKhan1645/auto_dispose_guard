@@ -21,26 +21,28 @@ class AutoDisposeExampleApp extends StatelessWidget {
   }
 }
 
+// ─── Home ─────────────────────────────────────────────────────────────────────
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AutoDisposeGuard')),
+      appBar: AppBar(title: const Text('AutoDisposeGuard 1.0.3')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _DemoTile(
             icon: Icons.widgets_outlined,
-            title: 'State mixin',
-            subtitle: 'Controllers, focus nodes, animations, and streams',
+            title: 'AutoDisposeMixin',
+            subtitle: 'State-class mixin: controllers, animations, streams',
             onTap: () => _push(context, const FormScreen()),
           ),
           _DemoTile(
             icon: Icons.route_outlined,
-            title: 'Widget scope',
-            subtitle: 'Register resources from any descendant',
+            title: 'AutoDisposeScope',
+            subtitle: 'Widget-tree scope — register from any descendant',
             onTap: () => _push(
               context,
               const AutoDisposeScope(
@@ -51,9 +53,21 @@ class HomeScreen extends StatelessWidget {
           ),
           _DemoTile(
             icon: Icons.settings_suggest_outlined,
-            title: 'Controller/service bag',
-            subtitle: 'GetX, Provider, blocs, services, and repositories',
+            title: 'AutoDisposeBagMixin (GetX / Provider)',
+            subtitle: 'Controller/service bag outside widget State',
             onTap: () => _push(context, const ServiceScreen()),
+          ),
+          _DemoTile(
+            icon: Icons.view_stream_outlined,
+            title: 'BlocAutoDisposeMixin',
+            subtitle: 'Bloc, Cubit, Riverpod StateNotifier',
+            onTap: () => _push(context, const BlocScreen()),
+          ),
+          _DemoTile(
+            icon: Icons.change_circle_outlined,
+            title: 'AutoDisposeChangeNotifier',
+            subtitle: 'Provider / Riverpod ChangeNotifier models',
+            onTap: () => _push(context, const ChangeNotifierScreen()),
           ),
         ],
       ),
@@ -67,6 +81,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
+// ─── 1. AutoDisposeMixin ──────────────────────────────────────────────────────
 
 class FormScreen extends StatefulWidget {
   const FormScreen({super.key});
@@ -96,8 +112,17 @@ class _FormScreenState extends State<FormScreen>
   int streamValue = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Lifecycle hook — fires after all resources are released.
+    addDisposeListener(
+      () => debugPrint('[Example] FormScreen fully cleaned up'),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    subscription;
+    subscription; // ensure late field is initialized
     return Scaffold(
       appBar: AppBar(
         title: const Text('AutoDisposeMixin'),
@@ -135,12 +160,29 @@ class _FormScreenState extends State<FormScreen>
               value: streamValue,
               onIncrement: () => counterStream.add(streamValue + 1),
             ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: () {
+                // Dispose the animation early — safe, idempotent.
+                if (isRegistered(animation)) {
+                  disposeOf(animation);
+                  setState(() {});
+                }
+              },
+              child: Text(
+                isRegistered(animation)
+                    ? 'Dispose animation early'
+                    : 'Animation disposed',
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ─── 2. AutoDisposeScope ──────────────────────────────────────────────────────
 
 class ScopeScreen extends StatefulWidget {
   const ScopeScreen({super.key});
@@ -221,6 +263,8 @@ class _ScopeScreenState extends State<ScopeScreen>
   }
 }
 
+// ─── 3. AutoDisposeBagMixin (GetX / Provider style) ──────────────────────────
+
 class ServiceScreen extends StatefulWidget {
   const ServiceScreen({super.key});
 
@@ -260,7 +304,8 @@ class _ServiceScreenState extends State<ServiceScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-                'Registered resources: ${service.disposeRegistry.resourceCount}'),
+              'Tracked resources: ${service.disposeRegistry.resourceCount}',
+            ),
           ],
         ),
       ),
@@ -279,10 +324,212 @@ class DemoService with AutoDisposeBagMixin {
 
   Future<void> closeSocketEarly() => socket.close();
 
-  // In GetX, put this body inside `onClose()`.
-  // In Provider/ChangeNotifier, call `disposeAutoDispose()` before `super.dispose()`.
+  // In GetX: override onClose() and call disposeAutoDispose().
+  // In Provider/ChangeNotifier: call disposeAutoDispose() before super.dispose().
   void onClose() => disposeAutoDispose();
 }
+
+// ─── 4. BlocAutoDisposeMixin ──────────────────────────────────────────────────
+
+class BlocScreen extends StatefulWidget {
+  const BlocScreen({super.key});
+
+  @override
+  State<BlocScreen> createState() => _BlocScreenState();
+}
+
+class _BlocScreenState extends State<BlocScreen> {
+  // Simulates a Cubit/Bloc — no flutter_bloc dependency needed in this example.
+  final cubit = CounterCubit();
+
+  @override
+  void dispose() {
+    cubit.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('BlocAutoDisposeMixin')),
+      body: _ScreenPadding(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Text('Simulated Cubit',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    StreamBuilder<int>(
+                      stream: cubit.stream,
+                      initialData: cubit.state,
+                      builder: (context, snap) => Text(
+                        '${snap.data}',
+                        style: Theme.of(context).textTheme.displayMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: cubit.increment,
+                      child: const Text('Increment'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Registered resources: ${cubit.resourceCount}',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'When you pop this screen, close() is called on the Cubit.\n'
+              'BlocAutoDisposeMixin disposes the internal Timer and '
+              'StreamSubscription before close() finishes.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Simulated Cubit — demonstrates BlocAutoDisposeMixin without a flutter_bloc
+/// dependency in the example app.
+class CounterCubit with BlocAutoDisposeMixin {
+  CounterCubit() {
+    // Auto-tick every second — disposed when close() is called.
+    register(
+      Timer.periodic(const Duration(seconds: 1), (_) => _emit(_state + 1)),
+    );
+    // Subscribe to our own stream — also auto-disposed.
+    register(
+      _controller.stream.listen((v) {
+        _state = v;
+        // In a real Bloc this would emit() a new state.
+      }),
+    );
+
+    addDisposeListener(
+      () => debugPrint('[Example] CounterCubit resources fully released'),
+    );
+  }
+
+  int _state = 0;
+  int get state => _state;
+
+  final _controller = StreamController<int>.broadcast();
+  Stream<int> get stream => _controller.stream;
+
+  void increment() => _emit(_state + 1);
+
+  void _emit(int value) {
+    if (_controller.isClosed) return;
+    _state = value;
+    _controller.add(value);
+  }
+
+  /// Call from your real Bloc's close() override before super.close().
+  void close() {
+    disposeAutoDispose();
+    _controller.close();
+  }
+}
+
+// ─── 5. AutoDisposeChangeNotifier ─────────────────────────────────────────────
+
+class ChangeNotifierScreen extends StatefulWidget {
+  const ChangeNotifierScreen({super.key});
+
+  @override
+  State<ChangeNotifierScreen> createState() => _ChangeNotifierScreenState();
+}
+
+class _ChangeNotifierScreenState extends State<ChangeNotifierScreen> {
+  final model = CounterModel();
+
+  @override
+  void initState() {
+    super.initState();
+    model.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('AutoDisposeChangeNotifier')),
+      body: _ScreenPadding(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CounterCard(
+              label: 'Auto-tick counter (Timer registered via register())',
+              value: model.count,
+              onIncrement: model.increment,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: model.search,
+              decoration: const InputDecoration(
+                labelText: 'Search (TextEditingController auto-disposed)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Pop the screen — dispose() is called on the model automatically.\n'
+              'AutoDisposeChangeNotifier releases the Timer and '
+              'TextEditingController before ChangeNotifier.dispose() finishes.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Provider/Riverpod-style model — no manual dispose() override needed.
+class CounterModel extends AutoDisposeChangeNotifier {
+  CounterModel() {
+    // Timer auto-disposed when this ChangeNotifier is disposed.
+    register(
+      Timer.periodic(const Duration(seconds: 2), (_) {
+        _count++;
+        notifyListeners();
+      }),
+    );
+  }
+
+  int _count = 0;
+  int get count => _count;
+
+  // TextEditingController auto-disposed — no override needed.
+  late final search = register(TextEditingController());
+
+  void increment() {
+    _count++;
+    notifyListeners();
+  }
+}
+
+// ─── Shared UI ────────────────────────────────────────────────────────────────
 
 class _DemoTile extends StatelessWidget {
   const _DemoTile({

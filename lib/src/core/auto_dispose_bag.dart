@@ -18,6 +18,13 @@ final class AutoDisposeBag {
   /// Number of resources currently tracked.
   int get resourceCount => registry.resourceCount;
 
+  /// Returns `true` if [resource] is currently registered.
+  bool isRegistered(Object resource) => registry.isRegistered(resource);
+
+  /// Registers [callback] to be called once after [dispose] completes.
+  void addDisposeListener(void Function() callback) =>
+      registry.addDisposeListener(callback);
+
   /// Registers [resource] and returns it for inline assignment.
   ///
   /// [onDispose] overrides the auto-detected teardown method.
@@ -60,6 +67,13 @@ mixin AutoDisposeBagMixin {
 
   /// Whether [disposeAutoDispose] has already released this mixin's resources.
   bool get isAutoDisposeDisposed => autoDisposeBag.isDisposed;
+
+  /// Returns `true` if [resource] is currently registered.
+  bool isRegistered(Object resource) => autoDisposeBag.isRegistered(resource);
+
+  /// Registers [callback] to be called once after [disposeAutoDispose] completes.
+  void addDisposeListener(void Function() callback) =>
+      autoDisposeBag.addDisposeListener(callback);
 
   /// Registers [resource] and returns it for inline assignment.
   R register<R extends Object>(

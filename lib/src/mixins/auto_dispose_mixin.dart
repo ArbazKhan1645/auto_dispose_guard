@@ -87,4 +87,21 @@ mixin AutoDisposeMixin<T extends StatefulWidget> on State<T> {
     );
     return resource;
   }
+
+  /// Returns `true` if [resource] is currently tracked by this scope.
+  bool isRegistered(Object resource) => disposeRegistry.isRegistered(resource);
+
+  /// Removes [resource] from tracking **without** disposing it.
+  ///
+  /// Use when you want to take ownership of disposal back from the scope.
+  void unregister(Object resource) => disposeRegistry.unregister(resource);
+
+  /// Disposes [resource] immediately and removes it from tracking.
+  ///
+  /// No-op if [resource] is not registered or already disposed.
+  void disposeOf(Object resource) => disposeRegistry.disposeResource(resource);
+
+  /// Registers [callback] to be called once after this scope's [dispose] completes.
+  void addDisposeListener(void Function() callback) =>
+      disposeRegistry.addDisposeListener(callback);
 }

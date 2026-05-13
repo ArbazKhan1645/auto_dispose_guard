@@ -29,12 +29,28 @@ final class DisposeRegistry {
   );
 
   bool _disposed = false;
+  final List<void Function()> _disposeListeners = [];
 
   /// Whether [disposeAll] has been called on this registry.
   bool get isDisposed => _disposed;
 
   /// Number of resources currently tracked (not yet disposed).
   int get resourceCount => _resources.length;
+
+  // ─── Listeners ─────────────────────────────────────────────────────────────
+
+  /// Registers [callback] to be called once after [disposeAll] completes.
+  ///
+  /// Useful for triggering clean-up callbacks, notifying parent objects, or
+  /// running logic that depends on all resources being released first.
+  /// All listeners are cleared after they fire.
+  void addDisposeListener(void Function() callback) {
+    assert(
+      !_disposed,
+      'DisposeRegistry[$debugLabel]: addDisposeListener() called after disposeAll().',
+    );
+    _disposeListeners.add(callback);
+  }
 
   // ─── Mutation ──────────────────────────────────────────────────────────────
 
@@ -106,6 +122,16 @@ final class DisposeRegistry {
 
     for (var i = snapshot.length - 1; i >= 0; i--) {
       _dispatchDispose(snapshot[i]);
+    }
+
+    final listeners = List<void Function()>.of(_disposeListeners);
+    _disposeListeners.clear();
+    for (final listener in listeners) {
+      try {
+        listener();
+      } catch (error, trace) {
+        AutoDisposeLogger.error('DisposeListener', error, trace);
+      }
     }
 
     AutoDisposeLogger.summary(snapshot.length, debugLabel);

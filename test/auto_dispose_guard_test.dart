@@ -163,7 +163,10 @@ void main() {
       final reg = DisposeRegistry(debugLabel: 'test');
       final stream = StreamController<int>();
       reg.register(stream);
-      await stream.close();
+      // Don't await close() — for a single-subscription controller with no
+      // listeners the done future never resolves. isClosed is set synchronously.
+      unawaited(stream.close());
+      expect(stream.isClosed, isTrue);
       expect(() => reg.disposeAll(), returnsNormally);
     });
 
@@ -207,12 +210,16 @@ void main() {
     });
 
     test('AutoDisposeBagMixin disposes controller/service resources', () {
-      final controller = _ServiceController();
-      controller.dispose();
-      controller.dispose();
+      final ctrl = _ServiceController();
+      // Access the late field BEFORE dispose so the lazy initializer runs and
+      // the _MockDisposable is registered with the bag.
+      expect(ctrl.controller.disposed, isFalse);
 
-      expect(controller.controller.disposed, isTrue);
-      expect(controller.isAutoDisposeDisposed, isTrue);
+      ctrl.dispose();
+      ctrl.dispose(); // idempotent
+
+      expect(ctrl.controller.disposed, isTrue);
+      expect(ctrl.isAutoDisposeDisposed, isTrue);
     });
   });
 

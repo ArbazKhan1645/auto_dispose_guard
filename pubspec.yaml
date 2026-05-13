@@ -1,6 +1,6 @@
 name: auto_dispose_guard
 description: Safe automatic disposal for Flutter controllers, streams, timers, services, and custom resources.
-version: 1.0.2
+version: 1.0.3
 homepage: https://github.com/ArbazKhan1645/auto_dispose_guard
 repository: https://github.com/ArbazKhan1645/auto_dispose_guard
 issue_tracker: https://github.com/ArbazKhan1645/auto_dispose_guard/issues
@@ -22,5 +22,5 @@ topics:
   - dispose
   - memory-management
   - lifecycle
-  - performance
   - controllers
+  - bloc

@@ -1,4 +1,4 @@
-﻿/// **auto_dispose_guard** — Zero-boilerplate resource lifecycle management
+/// **auto_dispose_guard** — Zero-boilerplate resource lifecycle management
 /// for production-scale Flutter applications.
 ///
 /// ## Core entry points
@@ -9,6 +9,10 @@
 /// | [AutoDisposeScope] | Widget-tree scope for cross-widget resource sharing |
 /// | [AutoDispose] | Imperative accessor: `AutoDispose.of(context).register(x)` |
 /// | `.autoDispose(context)` | Inline extension for fluent initialization |
+/// | [AutoDisposeBag] | Plain Dart classes, repositories, services |
+/// | [AutoDisposeBagMixin] | GetX / Provider / ChangeNotifier lifecycle owners |
+/// | [BlocAutoDisposeMixin] | Bloc, Cubit, Riverpod StateNotifier |
+/// | [AutoDisposeChangeNotifier] | Provider / Riverpod ChangeNotifier subclasses |
 ///
 /// ## Marker interfaces (implement for custom types)
 ///
@@ -32,6 +36,13 @@ export 'src/core/dispose_registry.dart' show DisposeRegistry;
 
 // Primary mixin API
 export 'src/mixins/auto_dispose_mixin.dart' show AutoDisposeMixin;
+
+// Bloc / Cubit / Riverpod StateNotifier mixin
+export 'src/mixins/bloc_auto_dispose_mixin.dart' show BlocAutoDisposeMixin;
+
+// ChangeNotifier subclass with auto-disposal (Provider / Riverpod)
+export 'src/notifiers/auto_dispose_change_notifier.dart'
+    show AutoDisposeChangeNotifier;
 
 // Widget-tree scope API
 export 'src/widgets/auto_dispose_scope.dart' show AutoDispose, AutoDisposeScope;
