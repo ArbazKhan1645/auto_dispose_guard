@@ -1,10 +1,6 @@
 ﻿name: auto_dispose_guard
-description: >-
-  High-performance Flutter package that automatically manages disposal of
-  all disposable resources — zero boilerplate, zero memory leaks.
-  Supports TextEditingController, AnimationController, StreamController,
-  FocusNode, custom types, and anything with dispose/close/cancel.
-version: 1.0.1
+description: Safe automatic disposal for Flutter controllers, streams, timers, services, and custom resources.
+version: 1.0.2
 homepage: https://github.com/ArbazKhan1645/auto_dispose_guard
 repository: https://github.com/ArbazKhan1645/auto_dispose_guard
 issue_tracker: https://github.com/ArbazKhan1645/auto_dispose_guard/issues

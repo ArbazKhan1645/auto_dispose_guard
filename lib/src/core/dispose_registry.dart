@@ -47,6 +47,7 @@ final class DisposeRegistry {
   void register(
     Object object, {
     void Function()? disposeCallback,
+    bool Function()? isDisposed,
   }) {
     assert(
       !_disposed,
@@ -59,6 +60,7 @@ final class DisposeRegistry {
     final tracked = DisposeEngine.createTracked(
       object,
       disposeCallback: disposeCallback,
+      isDisposed: isDisposed,
       registrationTrace: kDebugMode ? StackTrace.current : null,
     );
 

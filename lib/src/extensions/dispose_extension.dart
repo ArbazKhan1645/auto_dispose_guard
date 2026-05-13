@@ -23,8 +23,17 @@ extension AutoDisposeExtension<T extends Object> on T {
   /// - Return type is `T` — the calling code retains full static type
   ///   information with no casts.
   /// - [onDispose] overrides the auto-detected teardown method.
-  T autoDispose(BuildContext context, {void Function()? onDispose}) {
-    AutoDisposeScope.of(context).register(this, disposeCallback: onDispose);
+  /// - [isDisposed] skips teardown when the resource was already disposed.
+  T autoDispose(
+    BuildContext context, {
+    void Function()? onDispose,
+    bool Function()? isDisposed,
+  }) {
+    AutoDisposeScope.of(context).register(
+      this,
+      disposeCallback: onDispose,
+      isDisposed: isDisposed,
+    );
     return this;
   }
 }

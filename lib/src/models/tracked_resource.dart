@@ -7,8 +7,10 @@ final class TrackedResource {
     required this.resource,
     required this.typeName,
     required void Function() disposeFn,
+    bool Function()? isDisposed,
     this.registrationTrace,
   })  : _disposeFn = disposeFn,
+        _isDisposed = isDisposed,
         registeredAt = DateTime.now();
 
   /// The tracked object itself (held weakly via identity in [DisposeRegistry]).
@@ -24,10 +26,11 @@ final class TrackedResource {
   final StackTrace? registrationTrace;
 
   final void Function() _disposeFn;
+  final bool Function()? _isDisposed;
   bool _disposed = false;
 
   /// Whether this resource has already been disposed.
-  bool get isDisposed => _disposed;
+  bool get isDisposed => _disposed || _isAlreadyDisposed();
 
   /// Executes the disposal function exactly once.
   ///
@@ -35,7 +38,19 @@ final class TrackedResource {
   /// re-entrant calls during disposal are safe no-ops.
   void dispose() {
     if (_disposed) return;
+    if (_isAlreadyDisposed()) {
+      _disposed = true;
+      return;
+    }
     _disposed = true;
     _disposeFn();
+  }
+
+  bool _isAlreadyDisposed() {
+    try {
+      return _isDisposed?.call() ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 }

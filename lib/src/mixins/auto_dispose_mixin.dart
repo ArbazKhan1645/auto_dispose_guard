@@ -75,8 +75,16 @@ mixin AutoDisposeMixin<T extends StatefulWidget> on State<T> {
   ///   Timer.periodic(const Duration(seconds: 1), _onTick),
   /// );
   /// ```
-  R register<R extends Object>(R resource, {void Function()? onDispose}) {
-    disposeRegistry.register(resource, disposeCallback: onDispose);
+  R register<R extends Object>(
+    R resource, {
+    void Function()? onDispose,
+    bool Function()? isDisposed,
+  }) {
+    disposeRegistry.register(
+      resource,
+      disposeCallback: onDispose,
+      isDisposed: isDisposed,
+    );
     return resource;
   }
 }

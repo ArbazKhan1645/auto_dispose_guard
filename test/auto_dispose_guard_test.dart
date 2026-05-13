@@ -4,72 +4,64 @@ import 'package:auto_dispose_guard/auto_dispose_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// ─── Test doubles ─────────────────────────────────────────────────────────────
-
 class _MockDisposable implements Disposable {
   bool disposed = false;
+
   @override
   void dispose() => disposed = true;
 }
 
 class _MockCloseable implements Closeable {
   bool closed = false;
+
   @override
   void close() => closed = true;
 }
 
 class _MockCancellable implements Cancellable {
   bool cancelled = false;
+
   @override
   void cancel() => cancelled = true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+class _MockDisposeState implements Disposable, DisposeState {
+  bool disposeCalled = false;
+  bool alreadyDisposed = false;
+
+  @override
+  bool get isDisposed => alreadyDisposed;
+
+  @override
+  void dispose() => disposeCalled = true;
+}
 
 void main() {
-  // ── DisposeRegistry ─────────────────────────────────────────────────────
-
   group('DisposeRegistry', () {
-    test('registers and disposes a Disposable', () {
-      final reg = DisposeRegistry(debugLabel: 'test');
-      final obj = _MockDisposable();
+    test('registers and disposes supported marker types', () {
+      final disposable = _MockDisposable();
+      final closeable = _MockCloseable();
+      final cancellable = _MockCancellable();
+      final reg = DisposeRegistry(debugLabel: 'test')
+        ..register(disposable)
+        ..register(closeable)
+        ..register(cancellable);
 
-      reg.register(obj);
-      expect(reg.isRegistered(obj), isTrue);
-      expect(reg.resourceCount, equals(1));
-
+      expect(reg.resourceCount, equals(3));
       reg.disposeAll();
-      expect(obj.disposed, isTrue);
+
+      expect(disposable.disposed, isTrue);
+      expect(closeable.closed, isTrue);
+      expect(cancellable.cancelled, isTrue);
     });
 
-    test('registers and disposes a Closeable', () {
-      final reg = DisposeRegistry(debugLabel: 'test');
-      final obj = _MockCloseable();
-      reg.register(obj);
-      reg.disposeAll();
-      expect(obj.closed, isTrue);
-    });
-
-    test('registers and disposes a Cancellable', () {
-      final reg = DisposeRegistry(debugLabel: 'test');
-      final obj = _MockCancellable();
-      reg.register(obj);
-      reg.disposeAll();
-      expect(obj.cancelled, isTrue);
-    });
-
-    test('registration is idempotent', () {
+    test('registration and disposeAll are idempotent', () {
       final reg = DisposeRegistry(debugLabel: 'test');
       final obj = _MockDisposable();
       reg.register(obj);
       reg.register(obj);
       expect(reg.resourceCount, equals(1));
-    });
 
-    test('disposeAll is idempotent', () {
-      final reg = DisposeRegistry(debugLabel: 'test');
-      final obj = _MockDisposable();
-      reg.register(obj);
       reg.disposeAll();
       reg.disposeAll();
       expect(obj.disposed, isTrue);
@@ -78,19 +70,20 @@ void main() {
     test('disposes in LIFO order', () {
       final reg = DisposeRegistry(debugLabel: 'test');
       final order = <int>[];
-      final a = Object(), b = Object(), c = Object();
-      reg.register(a, disposeCallback: () => order.add(1));
-      reg.register(b, disposeCallback: () => order.add(2));
-      reg.register(c, disposeCallback: () => order.add(3));
+      reg.register(Object(), disposeCallback: () => order.add(1));
+      reg.register(Object(), disposeCallback: () => order.add(2));
+      reg.register(Object(), disposeCallback: () => order.add(3));
+
       reg.disposeAll();
       expect(order, equals([3, 2, 1]));
     });
 
-    test('fail-safe: continues disposing after one error', () {
+    test('continues disposing after one resource throws', () {
       final reg = DisposeRegistry(debugLabel: 'test');
       final good = _MockDisposable();
       reg.register(Object(), disposeCallback: () => throw Exception('boom'));
       reg.register(good);
+
       expect(() => reg.disposeAll(), returnsNormally);
       expect(good.disposed, isTrue);
     });
@@ -104,12 +97,13 @@ void main() {
       expect(obj.disposed, isFalse);
     });
 
-    test('disposeResource disposes and removes single resource', () {
+    test('disposeResource disposes and removes one resource', () {
       final reg = DisposeRegistry(debugLabel: 'test');
       final a = _MockDisposable();
       final b = _MockDisposable();
       reg.register(a);
       reg.register(b);
+
       reg.disposeResource(a);
       expect(a.disposed, isTrue);
       expect(reg.isRegistered(a), isFalse);
@@ -118,77 +112,109 @@ void main() {
 
     test('disposeCallback overrides auto-detection', () {
       final reg = DisposeRegistry(debugLabel: 'test');
-      bool customCalled = false;
+      var customCalled = false;
       final obj = _MockDisposable();
+
       reg.register(obj, disposeCallback: () => customCalled = true);
       reg.disposeAll();
+
       expect(customCalled, isTrue);
       expect(obj.disposed, isFalse);
     });
 
-    test('skips unknown type — resourceCount stays 0', () {
+    test('skips unknown types', () {
       final reg = DisposeRegistry(debugLabel: 'test');
       reg.register(Object());
       expect(reg.resourceCount, equals(0));
     });
+
+    test('skips disposal when isDisposed returns true', () {
+      final reg = DisposeRegistry(debugLabel: 'test');
+      var calls = 0;
+      reg.register(
+        Object(),
+        disposeCallback: () => calls++,
+        isDisposed: () => true,
+      );
+
+      reg.disposeAll();
+      expect(calls, equals(0));
+    });
   });
 
-  // ── DisposeEngine integration ────────────────────────────────────────────
+  group('DisposeEngine', () {
+    test('auto-detects Flutter and dart async types', () async {
+      final text = TextEditingController();
+      final stream = StreamController<int>();
+      final subscription = stream.stream.listen((_) {});
+      final timer = Timer(const Duration(days: 1), () {});
+      final reg = DisposeRegistry(debugLabel: 'test')
+        ..register(text)
+        ..register(stream)
+        ..register(subscription)
+        ..register(timer);
 
-  group('DisposeEngine — Flutter types', () {
-    test('auto-detects TextEditingController (ChangeNotifier)', () {
-      final reg = DisposeRegistry(debugLabel: 'test');
-      final ctrl = TextEditingController();
-      reg.register(ctrl);
-      expect(reg.resourceCount, equals(1));
       expect(() => reg.disposeAll(), returnsNormally);
+      expect(stream.isClosed, isTrue);
+      expect(timer.isActive, isFalse);
     });
 
-    test('auto-detects StreamController — closes it', () {
+    test('skips already closed StreamController', () async {
       final reg = DisposeRegistry(debugLabel: 'test');
       final stream = StreamController<int>();
       reg.register(stream);
-      reg.disposeAll();
-      expect(stream.isClosed, isTrue);
+      await stream.close();
+      expect(() => reg.disposeAll(), returnsNormally);
     });
 
-    test('auto-detects StreamSubscription — cancels it', () async {
-      final sc = StreamController<int>();
-      bool received = false;
-      final sub = sc.stream.listen((_) => received = true);
-      final reg = DisposeRegistry(debugLabel: 'test');
-      reg.register(sub);
-      reg.disposeAll();
-      sc.add(1);
-      await Future<void>.delayed(Duration.zero);
-      expect(received, isFalse);
-      await sc.close();
-    });
-  });
-
-  // ── TrackedResource ──────────────────────────────────────────────────────
-
-  group('TrackedResource', () {
-    test('disposeFn called exactly once', () {
-      int calls = 0;
-      final tracked = DisposeEngine.createTracked(
-        Object(),
-        disposeCallback: () => calls++,
-      )!;
+    test('DisposeState is used as automatic disposed probe', () {
+      final obj = _MockDisposeState()..alreadyDisposed = true;
+      final tracked = DisposeEngine.createTracked(obj)!;
       tracked.dispose();
-      tracked.dispose();
-      expect(calls, equals(1));
-    });
 
-    test('isDisposed reflects state', () {
-      final tracked = DisposeEngine.createTracked(_MockDisposable())!;
-      expect(tracked.isDisposed, isFalse);
-      tracked.dispose();
+      expect(obj.disposeCalled, isFalse);
       expect(tracked.isDisposed, isTrue);
     });
   });
 
-  // ── AutoDisposeScope widget ──────────────────────────────────────────────
+  group('TrackedResource', () {
+    test('disposeFn is called exactly once', () {
+      var calls = 0;
+      final tracked = DisposeEngine.createTracked(
+        Object(),
+        disposeCallback: () => calls++,
+      )!;
+
+      tracked.dispose();
+      tracked.dispose();
+      expect(calls, equals(1));
+    });
+  });
+
+  group('AutoDisposeBag', () {
+    test('registers and disposes resources outside widgets', () {
+      final bag = AutoDisposeBag(debugLabel: 'service');
+      final obj = _MockDisposable();
+
+      final returned = bag.register(obj);
+      expect(identical(returned, obj), isTrue);
+      expect(bag.resourceCount, equals(1));
+
+      bag.dispose();
+      bag.dispose();
+      expect(obj.disposed, isTrue);
+      expect(bag.isDisposed, isTrue);
+    });
+
+    test('AutoDisposeBagMixin disposes controller/service resources', () {
+      final controller = _ServiceController();
+      controller.dispose();
+      controller.dispose();
+
+      expect(controller.controller.disposed, isTrue);
+      expect(controller.isAutoDisposeDisposed, isTrue);
+    });
+  });
 
   group('AutoDisposeScope', () {
     testWidgets('disposes resources when removed from tree', (tester) async {
@@ -196,42 +222,38 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: AutoDisposeScope(
-            child: Builder(builder: (ctx) {
-              AutoDispose.of(ctx).register(obj);
-              return const SizedBox();
-            }),
+            child: Builder(
+              builder: (ctx) {
+                AutoDispose.of(ctx).register(obj);
+                return const SizedBox();
+              },
+            ),
           ),
         ),
       );
+
       expect(obj.disposed, isFalse);
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
       expect(obj.disposed, isTrue);
     });
 
-    testWidgets('of() throws when no scope in tree', (tester) async {
+    testWidgets('of throws when no scope exists', (tester) async {
       late BuildContext ctx;
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(builder: (c) {
-          ctx = c;
-          return const SizedBox();
-        }),
-      ));
-      expect(() => AutoDispose.of(ctx), throwsA(isA<FlutterError>()));
-    });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              ctx = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
 
-    testWidgets('maybeOf() returns null when no scope in tree', (tester) async {
-      late BuildContext ctx;
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(builder: (c) {
-          ctx = c;
-          return const SizedBox();
-        }),
-      ));
+      expect(() => AutoDispose.of(ctx), throwsA(isA<FlutterError>()));
       expect(AutoDispose.maybeOf(ctx), isNull);
     });
   });
-
-  // ── AutoDisposeMixin ─────────────────────────────────────────────────────
 
   group('AutoDisposeMixin', () {
     testWidgets('disposes resources on State.dispose', (tester) async {
@@ -241,16 +263,16 @@ void main() {
       expect(obj.disposed, isTrue);
     });
 
-    testWidgets('register() returns the resource', (tester) async {
+    testWidgets('register returns the resource', (tester) async {
       late TextEditingController returned;
-      await tester.pumpWidget(MaterialApp(
-        home: _MixinReturnTestWidget(onCapture: (c) => returned = c),
-      ));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _MixinReturnTestWidget(onCapture: (c) => returned = c),
+        ),
+      );
       expect(returned, isA<TextEditingController>());
     });
   });
-
-  // ── autoDispose extension ────────────────────────────────────────────────
 
   group('autoDispose extension', () {
     testWidgets('registers and returns same instance', (tester) async {
@@ -259,13 +281,16 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: AutoDisposeScope(
-            child: Builder(builder: (ctx) {
-              returned = obj.autoDispose(ctx);
-              return const SizedBox();
-            }),
+            child: Builder(
+              builder: (ctx) {
+                returned = obj.autoDispose(ctx);
+                return const SizedBox();
+              },
+            ),
           ),
         ),
       );
+
       expect(identical(returned, obj), isTrue);
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
       expect(obj.disposed, isTrue);
@@ -273,10 +298,15 @@ void main() {
   });
 }
 
-// ─── Widget helpers ───────────────────────────────────────────────────────────
+class _ServiceController with AutoDisposeBagMixin {
+  late final controller = register(_MockDisposable());
+
+  void dispose() => disposeAutoDispose();
+}
 
 class _MixinTestWidget extends StatefulWidget {
   const _MixinTestWidget(this.obj);
+
   final _MockDisposable obj;
 
   @override
@@ -297,6 +327,7 @@ class _MixinTestWidgetState extends State<_MixinTestWidget>
 
 class _MixinReturnTestWidget extends StatefulWidget {
   const _MixinReturnTestWidget({required this.onCapture});
+
   final void Function(TextEditingController) onCapture;
 
   @override

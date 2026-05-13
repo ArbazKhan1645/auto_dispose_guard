@@ -21,7 +21,11 @@ library auto_dispose_guard;
 
 // Marker interfaces + engine (advanced / testing use)
 export 'src/core/dispose_engine.dart'
-    show Cancellable, Closeable, Disposable, DisposeEngine;
+    show Cancellable, Closeable, Disposable, DisposeEngine, DisposeState;
+
+// Framework-agnostic bag API for controllers, services, blocs, and providers.
+export 'src/core/auto_dispose_bag.dart'
+    show AutoDisposeBag, AutoDisposeBagMixin;
 
 // Registry (advanced use)
 export 'src/core/dispose_registry.dart' show DisposeRegistry;
