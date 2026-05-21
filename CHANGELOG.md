@@ -12,7 +12,9 @@
   - `animation_controller_test.dart`: Assures leak-free teardowns for running `AnimationController` loops.
   - `async_safety_test.dart`: Tests `safeExecute` guards post-disposal.
   - `edge_case_test.dart`: Validates fail-safe error isolation, nested scopes, and type fallbacks.
-  - `benchmark_test.dart`: Gates registration and disposal operations at $< 1.5\mu s$ per op, demonstrating $O(1)$ scaling.
+  - `benchmark_test.dart`: Gates registration and disposal operations at < 1.5μs per op, demonstrating O(1) scaling.
+- **CI Pipeline** — GitHub Actions now runs `dart format`, `flutter analyze`, `flutter test --coverage`, and enforces ≥ 80% code coverage on every push and PR.
+- **README Overhaul** — Added coverage badge, pub.dev badge, license badge, expanded auto-detection table (Sink, duck-type fallback, disposed probes), detailed error isolation & retry semantics docs, benchmark performance table, platform/state-management compatibility matrix, and explicit `super.dispose()` order warning for future contributors.
 
 ## 1.0.3
 
