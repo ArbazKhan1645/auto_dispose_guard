@@ -90,6 +90,31 @@ abstract final class DisposeEngine {
     if (object is StreamController) return () => object.close();
     if (object is StreamSubscription) return () => object.cancel();
     if (object is Timer) return object.cancel;
+    if (object is Sink) return () => object.close();
+
+    // Fallback: Dynamic detection of dispose()
+    try {
+      final disposeMethod = (object as dynamic).dispose;
+      if (disposeMethod is Function) {
+        return () => (object as dynamic).dispose();
+      }
+    } catch (_) {}
+
+    // Fallback: Dynamic detection of close()
+    try {
+      final closeMethod = (object as dynamic).close;
+      if (closeMethod is Function) {
+        return () => (object as dynamic).close();
+      }
+    } catch (_) {}
+
+    // Fallback: Dynamic detection of cancel()
+    try {
+      final cancelMethod = (object as dynamic).cancel;
+      if (cancelMethod is Function) {
+        return () => (object as dynamic).cancel();
+      }
+    } catch (_) {}
 
     return null;
   }
@@ -98,6 +123,29 @@ abstract final class DisposeEngine {
     if (object is DisposeState) return () => object.isDisposed;
     if (object is StreamController) return () => object.isClosed;
     if (object is Timer) return () => !object.isActive;
+
+    // Fallback: Dynamic detection of isDisposed
+    try {
+      final isDisposedVal = (object as dynamic).isDisposed;
+      if (isDisposedVal is bool) {
+        return () => (object as dynamic).isDisposed as bool;
+      }
+      if (isDisposedVal is bool Function()) {
+        return () => (object as dynamic).isDisposed() as bool;
+      }
+    } catch (_) {}
+
+    // Fallback: Dynamic detection of isClosed
+    try {
+      final isClosedVal = (object as dynamic).isClosed;
+      if (isClosedVal is bool) {
+        return () => (object as dynamic).isClosed as bool;
+      }
+      if (isClosedVal is bool Function()) {
+        return () => (object as dynamic).isClosed() as bool;
+      }
+    } catch (_) {}
+
     return null;
   }
 }

@@ -34,16 +34,23 @@ final class TrackedResource {
 
   /// Executes the disposal function exactly once.
   ///
-  /// Sets [isDisposed] to `true` *before* calling the function so that
-  /// re-entrant calls during disposal are safe no-ops.
+  /// Uses try/catch so that a failed disposal can be retried — [_disposed] is
+  /// only set to `true` after a successful invocation. If the disposal function
+  /// throws, the error propagates and the resource remains in a non-disposed
+  /// state, allowing the caller to attempt disposal again.
   void dispose() {
     if (_disposed) return;
     if (_isAlreadyDisposed()) {
       _disposed = true;
       return;
     }
-    _disposed = true;
-    _disposeFn();
+    try {
+      _disposeFn();
+      _disposed = true;
+    } catch (_) {
+      // Leave _disposed as false so the caller can retry.
+      rethrow;
+    }
   }
 
   bool _isAlreadyDisposed() {
@@ -53,4 +60,8 @@ final class TrackedResource {
       return false;
     }
   }
+
+  @override
+  String toString() =>
+      'TrackedResource($typeName, disposed: $_disposed, age: ${DateTime.now().difference(registeredAt).inMilliseconds}ms)';
 }

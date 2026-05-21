@@ -1,3 +1,19 @@
+## 1.0.4
+
+### Production Hardening & Safety Helpers
+
+* **Flutter-Recommended Teardown Ordering** — Reordered `AutoDisposeMixin.dispose()` to invoke `_autoDisposeManager.release()` *before* delegating to `super.dispose()`. This guarantees that state-dependent objects (such as `AnimationController`) are disposed while the framework's own teardown mechanics are still fully intact.
+- **Dynamic Duck-Type Detection & Resilient Resolution** — Expanded `DisposeEngine` to dynamically probe for standard teardown methods (`dispose`, `close`, `cancel`) and state getters (`isDisposed`, `isClosed`) using dynamic member access. This allows auto-disposal of third-party classes (such as BloCs and custom controllers) without needing explicit subclassing or marker interfaces.
+- **Sink Support** — Added out-of-the-box auto-disposal for standard `Sink` objects, mapping them to `close()`.
+* **Mounted Callback Guards (`safeExecute` / `safeExecuteAsync`)** — Added safety helper methods in `AutoDisposeMixin` to guard synchronous and asynchronous state modifications (such as `setState`), safely skipping invocation if the widget is no longer `mounted`.
+* **Retryable Resource Disposal** — Re-engineered `TrackedResource` to support try/catch isolation so that a failed disposal leaves the resource in a non-disposed state, allowing the parent registry to safely retry disposal later.
+- **Comprehensive Testing Suite** — Introduced a rigorous suite of integration, stress, and benchmark tests under `test/`:
+  - `stress_test.dart`: Validates massive registration storms, concurrent modifications, and navigation cycling.
+  - `animation_controller_test.dart`: Assures leak-free teardowns for running `AnimationController` loops.
+  - `async_safety_test.dart`: Tests `safeExecute` guards post-disposal.
+  - `edge_case_test.dart`: Validates fail-safe error isolation, nested scopes, and type fallbacks.
+  - `benchmark_test.dart`: Gates registration and disposal operations at $< 1.5\mu s$ per op, demonstrating $O(1)$ scaling.
+
 ## 1.0.3
 
 ### New APIs

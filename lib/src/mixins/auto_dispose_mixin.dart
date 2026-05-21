@@ -59,10 +59,16 @@ mixin AutoDisposeMixin<T extends StatefulWidget> on State<T> {
 
   @override
   void dispose() {
-    // super.dispose() runs first so that TickerProvider mixins can clean up
-    // their tickers before AnimationController.dispose() is invoked below.
-    super.dispose();
+    // Release registered resources *before* super.dispose() — this is the
+    // Flutter-recommended pattern (own cleanup first, then framework teardown).
+    //
+    // When combining with TickerProviderStateMixin, place AutoDisposeMixin
+    // *after* the ticker mixin in the `with` clause.  Dart calls `dispose()`
+    // on the *last* mixin first, so AutoDisposeMixin.dispose() runs before
+    // TickerProviderStateMixin.dispose(), giving controllers a chance to be
+    // disposed while the ticker is still valid.
     _autoDisposeManager.release();
+    super.dispose();
   }
 
   /// Registers [resource] with this scope and returns it for inline use.
@@ -104,4 +110,27 @@ mixin AutoDisposeMixin<T extends StatefulWidget> on State<T> {
   /// Registers [callback] to be called once after this scope's [dispose] completes.
   void addDisposeListener(void Function() callback) =>
       disposeRegistry.addDisposeListener(callback);
+
+  /// Executes [callback] only if the widget is still [mounted].
+  ///
+  /// Use this to guard async callbacks that may fire after disposal:
+  /// ```dart
+  /// await Future.delayed(const Duration(seconds: 1));
+  /// safeExecute(() => setState(() => _loaded = true));
+  /// ```
+  void safeExecute(VoidCallback callback) {
+    if (mounted) callback();
+  }
+
+  /// Async version of [safeExecute].
+  ///
+  /// ```dart
+  /// safeExecuteAsync(() async {
+  ///   final data = await api.fetch();
+  ///   setState(() => _data = data);
+  /// });
+  /// ```
+  Future<void> safeExecuteAsync(Future<void> Function() callback) async {
+    if (mounted) await callback();
+  }
 }
