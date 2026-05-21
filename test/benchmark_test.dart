@@ -105,8 +105,7 @@ void main() {
       final registry = DisposeRegistry(debugLabel: 'bench-controllers');
       final stopwatch = Stopwatch()..start();
 
-      final controllers =
-          List.generate(1000, (_) => TextEditingController());
+      final controllers = List.generate(1000, (_) => TextEditingController());
       for (final c in controllers) {
         registry.register(c);
       }

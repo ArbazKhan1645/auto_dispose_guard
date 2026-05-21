@@ -60,8 +60,7 @@ void main() {
       expect(callbackRan, isFalse);
     });
 
-    testWidgets('safeExecuteAsync runs callback while mounted',
-        (tester) async {
+    testWidgets('safeExecuteAsync runs callback while mounted', (tester) async {
       var callbackRan = false;
       late _SafeExecWidgetState stateRef;
 

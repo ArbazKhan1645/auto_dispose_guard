@@ -52,8 +52,7 @@ mixin AutoDisposeMixin<T extends StatefulWidget> on State<T> {
   @override
   void initState() {
     super.initState();
-    _autoDisposeManager =
-        LifecycleManager(debugLabel: runtimeType.toString());
+    _autoDisposeManager = LifecycleManager(debugLabel: runtimeType.toString());
     _autoDisposeManager.bind();
   }
 

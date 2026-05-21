@@ -59,8 +59,7 @@ void main() {
 
     test('1000 TextEditingControllers register and dispose', () {
       final registry = DisposeRegistry(debugLabel: 'controllers');
-      final controllers =
-          List.generate(1000, (_) => TextEditingController());
+      final controllers = List.generate(1000, (_) => TextEditingController());
 
       for (final c in controllers) {
         registry.register(c);
@@ -75,14 +74,13 @@ void main() {
       }
     });
 
-    test('mixed type stress — 500 controllers + 500 streams + 500 timers',
-        () {
+    test('mixed type stress — 500 controllers + 500 streams + 500 timers', () {
       final registry = DisposeRegistry(debugLabel: 'mixed');
       final textControllers =
           List.generate(500, (_) => TextEditingController());
       final streams = List.generate(500, (_) => StreamController<int>());
-      final timers = List.generate(
-          500, (_) => Timer(const Duration(days: 1), () {}));
+      final timers =
+          List.generate(500, (_) => Timer(const Duration(days: 1), () {}));
 
       for (final c in textControllers) {
         registry.register(c);
