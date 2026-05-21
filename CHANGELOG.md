@@ -1,3 +1,10 @@
+## 1.0.5
+
+### Test Coverage & CI Pipeline Green-Up
+
+* **Robust Test Coverage Expansion** — Achieved near-100% test coverage across the package by introducing dedicated test cases for all fallback dynamic engines (`close`, `cancel`, `isDisposed` getters/methods, `isClosed` getters/methods), `Sink` detection, and edge-case error catch paths in `DisposeRegistry`.
+* **Coverage Pipeline Alignment** — Fully aligned the CI coverage gate (enforcing ≥ 80% coverage) with comprehensive unit and widget testing of all components (in `DisposeEngine`, `AutoDisposeBag`, `AutoDisposeMixin`, `BlocAutoDisposeMixin`, `AutoDisposeChangeNotifier`, and `AutoDisposeScope`).
+
 ## 1.0.4
 
 ### Production Hardening & Safety Helpers
