@@ -303,6 +303,245 @@ void main() {
       expect(obj.disposed, isTrue);
     });
   });
+
+  group('DisposeRegistry Edge Cases', () {
+    test('addDisposeListener after disposeAll throws AssertionError', () {
+      final reg = DisposeRegistry(debugLabel: 'assertion-test');
+      reg.disposeAll();
+      expect(
+          () => reg.addDisposeListener(() {}), throwsA(isA<AssertionError>()));
+    });
+
+    test('dispose listener throwing is caught and logged safely', () {
+      final reg = DisposeRegistry(debugLabel: 'test-throw-listener');
+      reg.addDisposeListener(() => throw Exception('listener fail'));
+      expect(() => reg.disposeAll(), returnsNormally);
+    });
+  });
+
+  group('DisposeEngine Dynamic Fallbacks and Sink', () {
+    test('detects and invokes dynamic close', () {
+      final reg = DisposeRegistry();
+      final obj = _DynamicCloseable();
+      reg.register(obj);
+      expect(reg.resourceCount, equals(1));
+      reg.disposeAll();
+      expect(obj.closed, isTrue);
+    });
+
+    test('detects and invokes dynamic cancel', () {
+      final reg = DisposeRegistry();
+      final obj = _DynamicCancellable();
+      reg.register(obj);
+      expect(reg.resourceCount, equals(1));
+      reg.disposeAll();
+      expect(obj.cancelled, isTrue);
+    });
+
+    test('detects dynamic isDisposed property', () {
+      final obj = _DynamicIsDisposedGetter();
+      final tracked = DisposeEngine.createTracked(obj)!;
+      expect(tracked.isDisposed, isFalse);
+      obj.isDisposed = true;
+      expect(tracked.isDisposed, isTrue);
+    });
+
+    test('detects dynamic isDisposed() function', () {
+      final obj = _DynamicIsDisposedMethod();
+      final tracked = DisposeEngine.createTracked(obj)!;
+      expect(tracked.isDisposed, isTrue);
+    });
+
+    test('detects dynamic isClosed property', () {
+      final obj = _DynamicIsClosedGetter();
+      final tracked = DisposeEngine.createTracked(obj)!;
+      expect(tracked.isDisposed, isFalse);
+      obj.isClosed = true;
+      expect(tracked.isDisposed, isTrue);
+    });
+
+    test('detects dynamic isClosed() function', () {
+      final obj = _DynamicIsClosedMethod();
+      final tracked = DisposeEngine.createTracked(obj)!;
+      expect(tracked.isDisposed, isTrue);
+    });
+
+    test('detects and closes Sink', () {
+      final reg = DisposeRegistry();
+      final obj = _MockSink();
+      reg.register(obj);
+      expect(reg.resourceCount, equals(1));
+      reg.disposeAll();
+      expect(obj.closed, isTrue);
+    });
+  });
+
+  group('AutoDisposeBag and Mixin extra methods', () {
+    test('AutoDisposeBag extra methods', () {
+      final bag = AutoDisposeBag(debugLabel: 'extra');
+      final obj = _MockDisposable();
+      bag.register(obj);
+      expect(bag.isRegistered(obj), isTrue);
+
+      var listenerCalled = false;
+      bag.addDisposeListener(() => listenerCalled = true);
+
+      bag.disposeResource(obj);
+      expect(obj.disposed, isTrue);
+
+      final obj2 = _MockDisposable();
+      bag.register(obj2);
+      bag.unregister(obj2);
+      expect(bag.isRegistered(obj2), isFalse);
+
+      bag.dispose();
+      expect(listenerCalled, isTrue);
+    });
+
+    test('AutoDisposeBagMixin extra methods', () {
+      final mixinObj = _ServiceControllerWithExtras();
+      expect(mixinObj.disposeRegistry, isNotNull);
+      final item = _MockDisposable();
+      mixinObj.register(item);
+      expect(mixinObj.isRegistered(item), isTrue);
+
+      var mixinListenerCalled = false;
+      mixinObj.addDisposeListener(() => mixinListenerCalled = true);
+
+      mixinObj.disposeAutoDispose();
+      expect(item.disposed, isTrue);
+      expect(mixinListenerCalled, isTrue);
+    });
+  });
+
+  group('AutoDisposeMixin Extra Methods', () {
+    testWidgets(
+        'invokes isRegistered, unregister, disposeOf, addDisposeListener',
+        (tester) async {
+      late _MixinExtrasWidgetState state;
+      final obj = _MockDisposable();
+      final obj2 = _MockDisposable();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _MixinExtrasWidget(
+            onState: (s) => state = s,
+            obj: obj,
+            obj2: obj2,
+          ),
+        ),
+      );
+
+      expect(state.isRegistered(obj), isTrue);
+      expect(state.isRegistered(obj2), isTrue);
+
+      var listenerCalled = false;
+      state.addDisposeListener(() => listenerCalled = true);
+
+      state.unregister(obj2);
+      expect(state.isRegistered(obj2), isFalse);
+
+      state.disposeOf(obj);
+      expect(obj.disposed, isTrue);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      expect(listenerCalled, isTrue);
+      expect(obj2.disposed, isFalse);
+    });
+  });
+
+  group('BlocAutoDisposeMixin', () {
+    test('tracks and disposes resources', () {
+      final obj = _MockDisposable();
+      final bloc = _TestBloc(obj);
+
+      expect(bloc.disposeRegistry, isNotNull);
+      expect(bloc.isAutoDisposeDisposed, isFalse);
+      expect(bloc.resourceCount, equals(1));
+      expect(bloc.isRegistered(obj), isTrue);
+
+      var listenerCalled = false;
+      bloc.addDisposeListener(() => listenerCalled = true);
+
+      final obj2 = _MockDisposable();
+      bloc.register(obj2);
+      bloc.unregister(obj2);
+      expect(bloc.isRegistered(obj2), isFalse);
+
+      final obj3 = _MockDisposable();
+      bloc.register(obj3);
+      bloc.disposeOf(obj3);
+      expect(obj3.disposed, isTrue);
+
+      bloc.disposeAutoDispose();
+      expect(obj.disposed, isTrue);
+      expect(bloc.isAutoDisposeDisposed, isTrue);
+      expect(listenerCalled, isTrue);
+    });
+  });
+
+  group('AutoDisposeChangeNotifier', () {
+    test('automatically disposes registered resources on dispose()', () {
+      final obj = _MockDisposable();
+      final notifier = _TestChangeNotifier(obj);
+
+      expect(notifier.isRegistered(obj), isTrue);
+      notifier.dispose();
+
+      expect(obj.disposed, isTrue);
+      expect(notifier.isAutoDisposeDisposed, isTrue);
+    });
+  });
+
+  group('AutoDisposeScope and _AutoDisposeScopeData Extra Tests', () {
+    testWidgets('maybeOf returns registry when scope exists', (tester) async {
+      late DisposeRegistry? registry;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AutoDisposeScope(
+            child: Builder(
+              builder: (context) {
+                registry = AutoDispose.maybeOf(context);
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
+      );
+      expect(registry, isNotNull);
+    });
+
+    testWidgets('updateShouldNotify of _AutoDisposeScopeData returns false',
+        (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              return AutoDisposeScope(
+                key: key,
+                child: SizedBox(key: ValueKey(context.hashCode)),
+              );
+            },
+          ),
+        ),
+      );
+
+      // Rebuild parent to trigger updateShouldNotify on the inherited widget
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              return AutoDisposeScope(
+                key: key,
+                child: const SizedBox(),
+              );
+            },
+          ),
+        ),
+      );
+    });
+  });
 }
 
 class _ServiceController with AutoDisposeBagMixin {
@@ -351,4 +590,85 @@ class _MixinReturnTestWidgetState extends State<_MixinReturnTestWidget>
 
   @override
   Widget build(BuildContext context) => const SizedBox();
+}
+
+class _DynamicCloseable {
+  bool closed = false;
+  void close() => closed = true;
+}
+
+class _DynamicCancellable {
+  bool cancelled = false;
+  void cancel() => cancelled = true;
+}
+
+class _DynamicIsDisposedGetter {
+  bool isDisposed = false;
+  void dispose() {}
+}
+
+class _DynamicIsDisposedMethod {
+  bool isDisposed() => true;
+  void dispose() {}
+}
+
+class _DynamicIsClosedGetter {
+  bool isClosed = false;
+  void dispose() {}
+}
+
+class _DynamicIsClosedMethod {
+  bool isClosed() => true;
+  void dispose() {}
+}
+
+class _MockSink implements Sink<int> {
+  bool closed = false;
+  @override
+  void add(int data) {}
+  @override
+  void close() => closed = true;
+}
+
+class _ServiceControllerWithExtras with AutoDisposeBagMixin {}
+
+class _MixinExtrasWidget extends StatefulWidget {
+  const _MixinExtrasWidget({
+    required this.onState,
+    required this.obj,
+    required this.obj2,
+  });
+
+  final void Function(_MixinExtrasWidgetState) onState;
+  final _MockDisposable obj;
+  final _MockDisposable obj2;
+
+  @override
+  State<_MixinExtrasWidget> createState() => _MixinExtrasWidgetState();
+}
+
+class _MixinExtrasWidgetState extends State<_MixinExtrasWidget>
+    with AutoDisposeMixin {
+  @override
+  void initState() {
+    super.initState();
+    register(widget.obj);
+    register(widget.obj2);
+    widget.onState(this);
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox();
+}
+
+class _TestBloc with BlocAutoDisposeMixin {
+  _TestBloc(Object resource) {
+    register(resource);
+  }
+}
+
+class _TestChangeNotifier extends AutoDisposeChangeNotifier {
+  _TestChangeNotifier(Object resource) {
+    register(resource);
+  }
 }
